@@ -67,7 +67,15 @@ function ExerciseHistory({ exerciseName, workouts, onBack }) {
   )
 }
 
-function HistoryView({ workouts, selectedExercise, onSelectExercise, onBack }) {
+function HistoryView({
+  workouts,
+  selectedExercise,
+  notice,
+  onSelectExercise,
+  onEditWorkout,
+  onDeleteWorkout,
+  onBack,
+}) {
   if (selectedExercise) {
     return (
       <ExerciseHistory
@@ -87,6 +95,8 @@ function HistoryView({ workouts, selectedExercise, onSelectExercise, onBack }) {
         <h1 id="history-title">Workout history</h1>
         <p className="intro">Your saved sessions, newest first.</p>
       </header>
+
+      {notice && <p className="form-message success history-notice" role="status">{notice}</p>}
 
       {sortedWorkouts.length === 0 ? (
         <p className="empty-state">Saved workouts will appear here.</p>
@@ -114,6 +124,19 @@ function HistoryView({ workouts, selectedExercise, onSelectExercise, onBack }) {
                     <span aria-hidden="true">›</span>
                   </button>
                 ))}
+              </div>
+
+              <div className="workout-actions">
+                <button type="button" onClick={() => onEditWorkout(workout)}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="delete-workout-button"
+                  onClick={() => onDeleteWorkout(workout)}
+                >
+                  Delete
+                </button>
               </div>
             </article>
           ))}

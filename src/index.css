@@ -86,15 +86,18 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 
 .remove-set { width: 31px; height: 31px; border: 0; border-radius: 50%; background: #f7e6e3; color: #9d372a; font-size: 1.45rem; line-height: 1; }
 
-.secondary-button, .add-exercise, .save-button { min-height: 48px; border-radius: 10px; padding: 10px 15px; font-weight: 800; }
+.secondary-button, .add-exercise, .save-button, .cancel-edit-button { min-height: 48px; border-radius: 10px; padding: 10px 15px; font-weight: 800; }
 .secondary-button { width: 100%; border: 1px solid #aec9b4; background: #f6faf5; color: #2d6640; }
 .add-exercise { width: 100%; margin-top: 16px; border: 1px dashed #769d80; background: transparent; color: #2e6841; }
 .save-button { width: 100%; margin-top: 24px; border: 0; background: #24613a; color: #fff; box-shadow: 0 4px 0 #164426; }
 .save-button:active { transform: translateY(2px); box-shadow: 0 2px 0 #164426; }
+.cancel-edit-button { width: 100%; margin-top: 24px; border: 1px solid #b9c3ba; background: transparent; color: #56635a; }
+.cancel-edit-button + .save-button { margin-top: 10px; }
 
 .form-message { margin: 18px 0 0; padding: 12px 14px; border-radius: 9px; font-weight: 650; }
 .error { background: #fbe9e6; color: #91362c; }
 .success { background: #e1f0e3; color: #235a34; }
+.history-notice { margin: -10px 0 18px; }
 
 .history-list { display: grid; gap: 14px; }
 
@@ -113,6 +116,10 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 .history-exercise-button strong { font-size: 0.96rem; }
 .history-exercise-button small { color: #6a766d; font-size: 0.76rem; }
 .history-exercise-button > span:last-child { color: #477357; font-size: 1.6rem; line-height: 1; }
+
+.workout-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 18px; border-top: 1px solid #e6e9e4; background: #fafbf9; }
+.workout-actions button { min-height: 42px; border: 1px solid #c8d0c8; border-radius: 9px; background: #fff; color: #315d40; font-size: 0.85rem; font-weight: 800; }
+.workout-actions .delete-workout-button { border-color: #e1c1bd; color: #9d372a; }
 
 .back-button { margin: -8px 0 22px; border: 0; background: transparent; color: #326847; padding: 8px 3px; font-size: 0.9rem; font-weight: 800; }
 .compact-heading { margin-bottom: 20px; }
@@ -133,4 +140,5 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
   .exercise-card { padding: 22px; }
   .history-card-heading, .history-exercise-button { padding-left: 22px; padding-right: 22px; }
   .history-sets { padding-left: 22px; padding-right: 22px; }
+  .workout-actions { padding-left: 22px; padding-right: 22px; }
 }

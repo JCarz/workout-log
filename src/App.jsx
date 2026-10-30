@@ -1,6 +1,11 @@
 import React, { useState } from 'react'
 import HistoryView from './components/HistoryView.jsx'
-import { loadWorkouts, saveWorkout } from './lib/storage.js'
+import {
+  deleteWorkout,
+  loadWorkouts,
+  saveWorkout,
+  updateWorkout,
+} from './lib/storage.js'
 
 function localDate() {
   const now = new Date()
@@ -26,8 +31,12 @@ function App() {
   const [workouts, setWorkouts] = useState(loadWorkouts)
   const [view, setView] = useState('log')
   const [selectedExercise, setSelectedExercise] = useState('')
+  const [editingWorkoutId, setEditingWorkoutId] = useState('')
+  const [historyNotice, setHistoryNotice] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  const isEditing = Boolean(editingWorkoutId)
 
   function addExercise() {
     setExercises((current) => [...current, createExercise()])
@@ -116,7 +125,7 @@ function App() {
     }
 
     const workout = {
-      id: createId(),
+      id: editingWorkoutId || createId(),
       date,
       exercises: exercises.map((exercise) => ({
         id: exercise.id,
@@ -129,20 +138,73 @@ function App() {
       })),
     }
 
+    if (isEditing) {
+      setWorkouts(updateWorkout(workout))
+      resetForm()
+      setHistoryNotice('Workout updated.')
+      setSelectedExercise('')
+      setView('history')
+      window.scrollTo({ top: 0 })
+      return
+    }
+
     setWorkouts(saveWorkout(workout))
     setExercises([])
     setError('')
     setMessage('Workout saved on this device.')
   }
 
+  function resetForm() {
+    setDate(localDate())
+    setExercises([])
+    setEditingWorkoutId('')
+    setMessage('')
+    setError('')
+  }
+
+  function editWorkout(workout) {
+    setDate(workout.date)
+    setExercises(
+      workout.exercises.map((exercise) => ({
+        ...exercise,
+        sets: exercise.sets.map((set) => ({ ...set })),
+      })),
+    )
+    setEditingWorkoutId(workout.id)
+    setHistoryNotice('')
+    setMessage('')
+    setError('')
+    setSelectedExercise('')
+    setView('log')
+    window.scrollTo({ top: 0 })
+  }
+
+  function removeWorkout(workout) {
+    const confirmed = window.confirm('Delete this workout? This cannot be undone.')
+
+    if (!confirmed) return
+
+    setWorkouts(deleteWorkout(workout.id))
+    setHistoryNotice('Workout deleted.')
+  }
+
+  function cancelEdit() {
+    resetForm()
+    setHistoryNotice('')
+    setView('history')
+  }
+
   function showLog() {
     setView('log')
     setSelectedExercise('')
+    setHistoryNotice('')
   }
 
   function showHistory() {
+    if (isEditing) resetForm()
     setView('history')
     setSelectedExercise('')
+    setHistoryNotice('')
   }
 
   return (
@@ -173,9 +235,11 @@ function App() {
         {view === 'log' ? (
           <section className="view-panel workout-form" aria-labelledby="page-title">
             <header className="view-heading">
-              <p className="eyebrow">New workout</p>
-              <h1 id="page-title">Log a workout</h1>
-              <p className="intro">Add your exercises and record every set.</p>
+              <p className="eyebrow">{isEditing ? 'Editing workout' : 'New workout'}</p>
+              <h1 id="page-title">{isEditing ? 'Edit workout' : 'Log a workout'}</h1>
+              <p className="intro">
+                {isEditing ? 'Update the date, exercises, or sets.' : 'Add your exercises and record every set.'}
+              </p>
             </header>
 
             <form onSubmit={handleSubmit} noValidate>
@@ -285,14 +349,24 @@ function App() {
           {error && <p className="form-message error" role="alert">{error}</p>}
           {message && <p className="form-message success" role="status">{message}</p>}
 
-              <button className="save-button" type="submit">Save workout</button>
+              {isEditing && (
+                <button className="cancel-edit-button" type="button" onClick={cancelEdit}>
+                  Cancel edit
+                </button>
+              )}
+              <button className="save-button" type="submit">
+                {isEditing ? 'Update workout' : 'Save workout'}
+              </button>
             </form>
           </section>
         ) : (
           <HistoryView
             workouts={workouts}
             selectedExercise={selectedExercise}
+            notice={historyNotice}
             onSelectExercise={setSelectedExercise}
+            onEditWorkout={editWorkout}
+            onDeleteWorkout={removeWorkout}
             onBack={() => setSelectedExercise('')}
           />
         )}

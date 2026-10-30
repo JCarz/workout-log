@@ -12,6 +12,8 @@ Workout Log is a phone-friendly Vite and React app for recording workouts in the
 - See an exercise's best set and its heaviest-set weight trend over time.
 - Edit saved workouts or delete them after a confirmation prompt.
 - Log bodyweight separately by date, see past entries, and follow a simple weight trend.
+- Export all saved data to JSON or restore it from a backup file.
+- Paste older workouts as plain text, review the parsed preview, and save them in one step.
 
 There is no backend or account system. Workouts are saved in the current browser's `localStorage` under `workout-log:workouts`, and bodyweight entries use `workout-log:bodyweight-entries`, so both remain after a refresh. Clearing the browser's site data will remove them.
 
@@ -35,5 +37,5 @@ pnpm preview
 
 - Support bodyweight sets without requiring a numeric weight.
 - Show a weekly workout-session count.
-- Import past workouts from pasted text with a review step before saving.
-- Add an export or backup option before introducing a backend.
+- Add duplicate detection when importing older workouts.
+- Add bodyweight editing and deletion.

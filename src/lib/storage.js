@@ -18,6 +18,14 @@ export function saveWorkout(workout) {
   return updatedWorkouts
 }
 
+export function saveWorkouts(newWorkouts) {
+  const workouts = loadWorkouts()
+  const updatedWorkouts = [...workouts, ...newWorkouts]
+
+  localStorage.setItem(WORKOUTS_KEY, JSON.stringify(updatedWorkouts))
+  return updatedWorkouts
+}
+
 export function updateWorkout(updatedWorkout) {
   const workouts = loadWorkouts()
   const updatedWorkouts = workouts.map((workout) =>
@@ -51,4 +59,11 @@ export function saveBodyweightEntry(entry) {
 
   localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(updatedEntries))
   return updatedEntries
+}
+
+export function restoreAllData({ workouts, bodyweightEntries }) {
+  localStorage.setItem(WORKOUTS_KEY, JSON.stringify(workouts))
+  localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(bodyweightEntries))
+
+  return { workouts, bodyweightEntries }
 }

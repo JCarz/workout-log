@@ -1,12 +1,15 @@
 import React, { useState } from 'react'
 import BodyweightView from './components/BodyweightView.jsx'
+import DataView from './components/DataView.jsx'
 import HistoryView from './components/HistoryView.jsx'
 import {
   deleteWorkout,
   loadBodyweightEntries,
   loadWorkouts,
+  restoreAllData,
   saveBodyweightEntry,
   saveWorkout,
+  saveWorkouts,
   updateWorkout,
 } from './lib/storage.js'
 
@@ -252,8 +255,35 @@ function App() {
     setHistoryNotice('')
   }
 
+  function showData() {
+    if (isEditing) resetForm()
+    setView('data')
+    setSelectedExercise('')
+    setHistoryNotice('')
+  }
+
   function addBodyweightEntry(entry) {
     setBodyweightEntries(saveBodyweightEntry({ ...entry, id: createId() }))
+  }
+
+  function restoreData(backup) {
+    const restored = restoreAllData(backup)
+    setWorkouts(restored.workouts)
+    setBodyweightEntries(restored.bodyweightEntries)
+  }
+
+  function addParsedWorkouts(parsedWorkouts) {
+    const importedWorkouts = parsedWorkouts.map((workout) => ({
+      id: createId(),
+      date: workout.date,
+      exercises: workout.exercises.map((exercise) => ({
+        id: createId(),
+        name: exercise.name,
+        sets: exercise.sets.map((set) => ({ ...set, id: createId() })),
+      })),
+    }))
+
+    setWorkouts(saveWorkouts(importedWorkouts))
   }
 
   return (
@@ -285,6 +315,14 @@ function App() {
               onClick={showBodyweight}
             >
               Bodyweight
+            </button>
+            <button
+              type="button"
+              className={view === 'data' ? 'active' : ''}
+              aria-current={view === 'data' ? 'page' : undefined}
+              onClick={showData}
+            >
+              Data
             </button>
           </nav>
         </header>
@@ -439,8 +477,15 @@ function App() {
             onDeleteWorkout={removeWorkout}
             onBack={() => setSelectedExercise('')}
           />
-        ) : (
+        ) : view === 'bodyweight' ? (
           <BodyweightView entries={bodyweightEntries} onSave={addBodyweightEntry} />
+        ) : (
+          <DataView
+            workouts={workouts}
+            bodyweightEntries={bodyweightEntries}
+            onRestore={restoreData}
+            onSaveParsedWorkouts={addParsedWorkouts}
+          />
         )}
       </div>
     </main>

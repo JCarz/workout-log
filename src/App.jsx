@@ -290,7 +290,7 @@ function App() {
     <main className="page-shell">
       <div className="app-shell">
         <header className="app-header">
-          <p className="app-name">Workout Log</p>
+          <p className="app-name">Barbook</p>
           <nav className="view-switcher" aria-label="Workout log views">
             <button
               type="button"

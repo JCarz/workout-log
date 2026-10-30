@@ -6,6 +6,7 @@ Workout Log is a phone-friendly Vite and React app for recording workouts in the
 
 - Choose a workout date, which defaults to today.
 - Add exercises and record sets with reps and weight in pounds.
+- Repeat the most recent workout to pre-fill a new session with fresh copies of its exercises and sets.
 - Browse saved workouts by date.
 - Tap an exercise to see its history across workouts, including each set's reps and weight.
 - Edit saved workouts or delete them after a confirmation prompt.

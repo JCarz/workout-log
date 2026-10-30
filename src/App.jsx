@@ -25,6 +25,21 @@ function createExercise() {
   return { id: createId(), name: '', sets: [] }
 }
 
+function getMostRecentWorkout(workouts) {
+  return workouts.reduce(
+    (latest, workout) => (!latest || workout.date >= latest.date ? workout : latest),
+    null,
+  )
+}
+
+function formatDate(date) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(`${date}T00:00:00`))
+}
+
 function App() {
   const [date, setDate] = useState(localDate)
   const [exercises, setExercises] = useState([])
@@ -37,10 +52,29 @@ function App() {
   const [error, setError] = useState('')
 
   const isEditing = Boolean(editingWorkoutId)
+  const lastWorkout = getMostRecentWorkout(workouts)
 
   function addExercise() {
     setExercises((current) => [...current, createExercise()])
     setMessage('')
+    setError('')
+  }
+
+  function repeatLastWorkout() {
+    if (!lastWorkout) return
+
+    setExercises(
+      lastWorkout.exercises.map((exercise) => ({
+        id: createId(),
+        name: exercise.name,
+        sets: exercise.sets.map((set) => ({
+          id: createId(),
+          reps: set.reps,
+          weight: set.weight,
+        })),
+      })),
+    )
+    setMessage('Last workout copied. Adjust your sets, then save.')
     setError('')
   }
 
@@ -253,6 +287,19 @@ function App() {
               required
             />
           </label>
+
+          {!isEditing && exercises.length === 0 && lastWorkout && (
+            <button className="repeat-workout-button" type="button" onClick={repeatLastWorkout}>
+              <span>
+                <strong>Repeat last workout</strong>
+                <small>
+                  {formatDate(lastWorkout.date)} · {lastWorkout.exercises.length}{' '}
+                  {lastWorkout.exercises.length === 1 ? 'exercise' : 'exercises'}
+                </small>
+              </span>
+              <span aria-hidden="true">›</span>
+            </button>
+          )}
 
           <div className="section-heading">
             <h2>Exercises</h2>

@@ -46,6 +46,13 @@ h1 { margin-bottom: 8px; font-size: clamp(2rem, 8vw, 2.7rem); line-height: 1; le
 
 .date-field { display: grid; gap: 8px; margin-bottom: 30px; font-weight: 700; }
 
+.repeat-workout-button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 64px; margin: -14px 0 28px; border: 1px solid #aec9b4; border-radius: 12px; background: #edf5ed; color: #245a36; padding: 11px 15px; text-align: left; }
+.repeat-workout-button > span:first-child { display: grid; gap: 3px; }
+.repeat-workout-button strong { font-size: 0.94rem; }
+.repeat-workout-button small { color: #607165; font-size: 0.76rem; }
+.repeat-workout-button > span:last-child { font-size: 1.55rem; line-height: 1; }
+.repeat-workout-button:active { background: #e1eee2; }
+
 input {
   width: 100%;
   min-height: 48px;

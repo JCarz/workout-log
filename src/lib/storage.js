@@ -1,8 +1,18 @@
 const WORKOUTS_KEY = 'workout-log:workouts'
 
-export function saveWorkout(workout) {
-  const savedWorkouts = JSON.parse(localStorage.getItem(WORKOUTS_KEY) ?? '[]')
-  const workouts = Array.isArray(savedWorkouts) ? savedWorkouts : []
+export function loadWorkouts() {
+  try {
+    const savedWorkouts = JSON.parse(localStorage.getItem(WORKOUTS_KEY) ?? '[]')
+    return Array.isArray(savedWorkouts) ? savedWorkouts : []
+  } catch {
+    return []
+  }
+}
 
-  localStorage.setItem(WORKOUTS_KEY, JSON.stringify([...workouts, workout]))
+export function saveWorkout(workout) {
+  const workouts = loadWorkouts()
+  const updatedWorkouts = [...workouts, workout]
+
+  localStorage.setItem(WORKOUTS_KEY, JSON.stringify(updatedWorkouts))
+  return updatedWorkouts
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { saveWorkout } from './lib/storage.js'
+import HistoryView from './components/HistoryView.jsx'
+import { loadWorkouts, saveWorkout } from './lib/storage.js'
 
 function localDate() {
   const now = new Date()
@@ -22,6 +23,9 @@ function createExercise() {
 function App() {
   const [date, setDate] = useState(localDate)
   const [exercises, setExercises] = useState([])
+  const [workouts, setWorkouts] = useState(loadWorkouts)
+  const [view, setView] = useState('log')
+  const [selectedExercise, setSelectedExercise] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -125,22 +129,56 @@ function App() {
       })),
     }
 
-    saveWorkout(workout)
+    setWorkouts(saveWorkout(workout))
     setExercises([])
     setError('')
     setMessage('Workout saved on this device.')
   }
 
+  function showLog() {
+    setView('log')
+    setSelectedExercise('')
+  }
+
+  function showHistory() {
+    setView('history')
+    setSelectedExercise('')
+  }
+
   return (
     <main className="page-shell">
-      <section className="workout-form" aria-labelledby="page-title">
-        <header>
-          <p className="eyebrow">Workout Log</p>
-          <h1 id="page-title">Log a workout</h1>
-          <p className="intro">Add your exercises and record every set.</p>
+      <div className="app-shell">
+        <header className="app-header">
+          <p className="app-name">Workout Log</p>
+          <nav className="view-switcher" aria-label="Workout log views">
+            <button
+              type="button"
+              className={view === 'log' ? 'active' : ''}
+              aria-current={view === 'log' ? 'page' : undefined}
+              onClick={showLog}
+            >
+              Log
+            </button>
+            <button
+              type="button"
+              className={view === 'history' ? 'active' : ''}
+              aria-current={view === 'history' ? 'page' : undefined}
+              onClick={showHistory}
+            >
+              History <span>{workouts.length}</span>
+            </button>
+          </nav>
         </header>
 
-        <form onSubmit={handleSubmit} noValidate>
+        {view === 'log' ? (
+          <section className="view-panel workout-form" aria-labelledby="page-title">
+            <header className="view-heading">
+              <p className="eyebrow">New workout</p>
+              <h1 id="page-title">Log a workout</h1>
+              <p className="intro">Add your exercises and record every set.</p>
+            </header>
+
+            <form onSubmit={handleSubmit} noValidate>
           <label className="date-field" htmlFor="workout-date">
             <span>Date</span>
             <input
@@ -188,7 +226,7 @@ function App() {
                     <div className="sets" aria-label={`${exercise.name || 'Exercise'} sets`}>
                       <div className="set-labels" aria-hidden="true">
                         <span>Set</span>
-                        <span>Weight</span>
+                        <span>LBS</span>
                         <span>Reps</span>
                         <span />
                       </div>
@@ -196,13 +234,13 @@ function App() {
                         <div className="set-row" key={set.id}>
                           <span className="set-number">{setIndex + 1}</span>
                           <label>
-                            <span className="sr-only">Weight for set {setIndex + 1}</span>
+                            <span className="sr-only">Weight in pounds for set {setIndex + 1}</span>
                             <input
                               type="number"
                               inputMode="decimal"
                               min="0"
                               step="0.5"
-                              placeholder="kg"
+                              placeholder="lbs"
                               value={set.weight}
                               onChange={(event) => updateSet(exercise.id, set.id, 'weight', event.target.value)}
                             />
@@ -247,9 +285,18 @@ function App() {
           {error && <p className="form-message error" role="alert">{error}</p>}
           {message && <p className="form-message success" role="status">{message}</p>}
 
-          <button className="save-button" type="submit">Save workout</button>
-        </form>
-      </section>
+              <button className="save-button" type="submit">Save workout</button>
+            </form>
+          </section>
+        ) : (
+          <HistoryView
+            workouts={workouts}
+            selectedExercise={selectedExercise}
+            onSelectExercise={setSelectedExercise}
+            onBack={() => setSelectedExercise('')}
+          />
+        )}
+      </div>
     </main>
   )
 }

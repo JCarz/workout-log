@@ -1,0 +1,126 @@
+import React from 'react'
+
+function formatDate(date) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(`${date}T00:00:00`))
+}
+
+function setCountLabel(count) {
+  return `${count} ${count === 1 ? 'set' : 'sets'}`
+}
+
+function normalizeExerciseName(name) {
+  return name.trim().toLocaleLowerCase()
+}
+
+function ExerciseHistory({ exerciseName, workouts, onBack }) {
+  const normalizedName = normalizeExerciseName(exerciseName)
+  const sessions = workouts
+    .flatMap((workout) =>
+      workout.exercises
+        .filter((exercise) => normalizeExerciseName(exercise.name) === normalizedName)
+        .map((exercise) => ({ date: workout.date, exercise })),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date))
+
+  return (
+    <section className="view-panel" aria-labelledby="exercise-history-title">
+      <button className="back-button" type="button" onClick={onBack}>
+        ← All workouts
+      </button>
+
+      <header className="view-heading compact-heading">
+        <p className="eyebrow">Exercise history</p>
+        <h1 id="exercise-history-title">{exerciseName}</h1>
+        <p className="intro">{sessions.length} {sessions.length === 1 ? 'workout' : 'workouts'} recorded</p>
+      </header>
+
+      <div className="history-list">
+        {sessions.map(({ date, exercise }, sessionIndex) => (
+          <article className="history-card exercise-session" key={`${date}-${exercise.id}-${sessionIndex}`}>
+            <div className="history-card-heading">
+              <time dateTime={date}>{formatDate(date)}</time>
+              <span>{setCountLabel(exercise.sets.length)}</span>
+            </div>
+
+            <div className="history-sets">
+              <div className="history-set-labels" aria-hidden="true">
+                <span>Set</span>
+                <span>LBS</span>
+                <span>Reps</span>
+              </div>
+              {exercise.sets.map((set, setIndex) => (
+                <div className="history-set-row" key={set.id}>
+                  <span>{setIndex + 1}</span>
+                  <strong>{set.weight} lbs</strong>
+                  <strong>{set.reps}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function HistoryView({ workouts, selectedExercise, onSelectExercise, onBack }) {
+  if (selectedExercise) {
+    return (
+      <ExerciseHistory
+        exerciseName={selectedExercise}
+        workouts={workouts}
+        onBack={onBack}
+      />
+    )
+  }
+
+  const sortedWorkouts = [...workouts].sort((a, b) => b.date.localeCompare(a.date))
+
+  return (
+    <section className="view-panel" aria-labelledby="history-title">
+      <header className="view-heading">
+        <p className="eyebrow">Past workouts</p>
+        <h1 id="history-title">Workout history</h1>
+        <p className="intro">Your saved sessions, newest first.</p>
+      </header>
+
+      {sortedWorkouts.length === 0 ? (
+        <p className="empty-state">Saved workouts will appear here.</p>
+      ) : (
+        <div className="history-list">
+          {sortedWorkouts.map((workout) => (
+            <article className="history-card" key={workout.id}>
+              <div className="history-card-heading">
+                <time dateTime={workout.date}>{formatDate(workout.date)}</time>
+                <span>{workout.exercises.length} {workout.exercises.length === 1 ? 'exercise' : 'exercises'}</span>
+              </div>
+
+              <div className="history-exercises">
+                {workout.exercises.map((exercise) => (
+                  <button
+                    type="button"
+                    className="history-exercise-button"
+                    key={exercise.id}
+                    onClick={() => onSelectExercise(exercise.name)}
+                  >
+                    <span>
+                      <strong>{exercise.name}</strong>
+                      <small>{setCountLabel(exercise.sets.length)}</small>
+                    </span>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default HistoryView

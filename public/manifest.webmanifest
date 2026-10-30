@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Workout Log",
-  "short_name": "Workout Log",
+  "name": "Barbook",
+  "short_name": "Barbook",
   "description": "A simple, private workout and bodyweight log stored on your device.",
   "start_url": "/",
   "scope": "/",

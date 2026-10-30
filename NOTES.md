@@ -1,8 +1,8 @@
-# Workout Log
+# Barbook
 
 ## What the app does
 
-Workout Log is a phone-friendly Vite and React app for recording workouts in the browser. It lets you:
+Barbook is a phone-friendly Vite and React app for recording workouts in the browser. It lets you:
 
 - Choose a workout date, which defaults to today.
 - Add exercises and record sets with reps and weight in pounds.
@@ -16,7 +16,7 @@ Workout Log is a phone-friendly Vite and React app for recording workouts in the
 - Paste older workouts as plain text, review the parsed preview, and save them in one step.
 - Install the app on a phone or desktop and keep using it offline after the first load.
 
-There is no backend or account system. Workouts are saved in the current browser's `localStorage` under `workout-log:workouts`, and bodyweight entries use `workout-log:bodyweight-entries`, so both remain after a refresh. Clearing the browser's site data will remove them.
+There is no backend or account system. Workouts are saved in the current browser's localStorage under the existing keys `workout-log:workouts`, and bodyweight entries use `workout-log:bodyweight-entries`. These keys are intentionally unchanged so existing saved workouts remain available after the rename to Barbook.
 
 ## How to run it
 
@@ -33,6 +33,10 @@ Open the local URL printed by Vite. To check the production build instead:
 pnpm build
 pnpm preview
 ```
+
+## GitHub repository
+
+https://github.com/JCarz/workout-log
 
 ## Possible next steps
 

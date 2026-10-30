@@ -1,4 +1,5 @@
 const WORKOUTS_KEY = 'workout-log:workouts'
+const BODYWEIGHT_KEY = 'workout-log:bodyweight-entries'
 
 export function loadWorkouts() {
   try {
@@ -33,4 +34,21 @@ export function deleteWorkout(workoutId) {
 
   localStorage.setItem(WORKOUTS_KEY, JSON.stringify(updatedWorkouts))
   return updatedWorkouts
+}
+
+export function loadBodyweightEntries() {
+  try {
+    const savedEntries = JSON.parse(localStorage.getItem(BODYWEIGHT_KEY) ?? '[]')
+    return Array.isArray(savedEntries) ? savedEntries : []
+  } catch {
+    return []
+  }
+}
+
+export function saveBodyweightEntry(entry) {
+  const entries = loadBodyweightEntries()
+  const updatedEntries = [...entries, entry]
+
+  localStorage.setItem(BODYWEIGHT_KEY, JSON.stringify(updatedEntries))
+  return updatedEntries
 }

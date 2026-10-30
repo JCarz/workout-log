@@ -152,6 +152,19 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 .trend-axis-label { fill: #69746b; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .trend-date-labels { display: flex; justify-content: space-between; gap: 10px; margin-left: 38px; color: #69746b; font-size: 0.72rem; }
 
+.bodyweight-form { margin-bottom: 18px; padding: 18px; border: 1px solid #d5dbd3; border-radius: 14px; background: #fff; }
+.bodyweight-fields { display: grid; gap: 14px; }
+.bodyweight-fields label { display: grid; gap: 8px; font-weight: 700; }
+.bodyweight-form .form-message { margin-top: 14px; }
+.bodyweight-save-button { margin-top: 16px; }
+.bodyweight-trend-card { margin-bottom: 28px; }
+.bodyweight-history .section-heading { margin-bottom: 12px; }
+.bodyweight-list { overflow: hidden; border: 1px solid #d5dbd3; border-radius: 14px; background: #fff; }
+.bodyweight-entry { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 58px; padding: 12px 18px; }
+.bodyweight-entry + .bodyweight-entry { border-top: 1px solid #e6e9e4; }
+.bodyweight-entry time { color: #59665d; font-size: 0.9rem; }
+.bodyweight-entry strong { color: #245a36; font-size: 1rem; font-variant-numeric: tabular-nums; }
+
 .exercise-session .history-card-heading { border-bottom: 1px solid #e6e9e4; }
 .history-sets { padding: 10px 18px 15px; }
 .history-set-labels, .history-set-row { display: grid; grid-template-columns: 0.7fr 1.2fr 0.8fr; gap: 12px; align-items: center; }
@@ -163,10 +176,17 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+@media (max-width: 479px) {
+  .app-header { align-items: stretch; flex-direction: column; gap: 12px; }
+  .view-switcher { width: 100%; }
+  .view-switcher button { flex: 1; padding-left: 7px; padding-right: 7px; }
+}
+
 @media (min-width: 640px) {
   .page-shell { padding-top: 52px; }
   .exercise-card { padding: 22px; }
   .history-card-heading, .history-exercise-button { padding-left: 22px; padding-right: 22px; }
   .history-sets { padding-left: 22px; padding-right: 22px; }
   .workout-actions { padding-left: 22px; padding-right: 22px; }
+  .bodyweight-fields { grid-template-columns: 1fr 1fr; }
 }

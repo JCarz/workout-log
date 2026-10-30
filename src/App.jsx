@@ -1,8 +1,11 @@
 import React, { useState } from 'react'
+import BodyweightView from './components/BodyweightView.jsx'
 import HistoryView from './components/HistoryView.jsx'
 import {
   deleteWorkout,
+  loadBodyweightEntries,
   loadWorkouts,
+  saveBodyweightEntry,
   saveWorkout,
   updateWorkout,
 } from './lib/storage.js'
@@ -44,6 +47,7 @@ function App() {
   const [date, setDate] = useState(localDate)
   const [exercises, setExercises] = useState([])
   const [workouts, setWorkouts] = useState(loadWorkouts)
+  const [bodyweightEntries, setBodyweightEntries] = useState(loadBodyweightEntries)
   const [view, setView] = useState('log')
   const [selectedExercise, setSelectedExercise] = useState('')
   const [editingWorkoutId, setEditingWorkoutId] = useState('')
@@ -241,6 +245,17 @@ function App() {
     setHistoryNotice('')
   }
 
+  function showBodyweight() {
+    if (isEditing) resetForm()
+    setView('bodyweight')
+    setSelectedExercise('')
+    setHistoryNotice('')
+  }
+
+  function addBodyweightEntry(entry) {
+    setBodyweightEntries(saveBodyweightEntry({ ...entry, id: createId() }))
+  }
+
   return (
     <main className="page-shell">
       <div className="app-shell">
@@ -262,6 +277,14 @@ function App() {
               onClick={showHistory}
             >
               History <span>{workouts.length}</span>
+            </button>
+            <button
+              type="button"
+              className={view === 'bodyweight' ? 'active' : ''}
+              aria-current={view === 'bodyweight' ? 'page' : undefined}
+              onClick={showBodyweight}
+            >
+              Bodyweight
             </button>
           </nav>
         </header>
@@ -406,7 +429,7 @@ function App() {
               </button>
             </form>
           </section>
-        ) : (
+        ) : view === 'history' ? (
           <HistoryView
             workouts={workouts}
             selectedExercise={selectedExercise}
@@ -416,6 +439,8 @@ function App() {
             onDeleteWorkout={removeWorkout}
             onBack={() => setSelectedExercise('')}
           />
+        ) : (
+          <BodyweightView entries={bodyweightEntries} onSave={addBodyweightEntry} />
         )}
       </div>
     </main>

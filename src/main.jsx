@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
+function requestPersistentStorage() {
+  if (!navigator.storage?.persist) return
+
+  navigator.storage.persist().catch(() => {
+    // Persistence is a browser permission request; the app remains usable if it is declined.
+  })
+}
+
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return
 
@@ -45,6 +53,8 @@ async function registerServiceWorker() {
 if (import.meta.env.PROD) {
   window.addEventListener('load', registerServiceWorker)
 }
+
+requestPersistentStorage()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

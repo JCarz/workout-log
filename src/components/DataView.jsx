@@ -4,6 +4,7 @@ import {
   parseBackupJson,
   parseWorkoutText,
 } from '../lib/dataTransfer.js'
+import { getLastBackupAt, recordBackupExport } from '../lib/storage.js'
 
 function localDate() {
   const now = new Date()
@@ -23,11 +24,28 @@ function formatWeight(weight) {
   return Number.isInteger(weight) ? weight : weight.toFixed(1)
 }
 
+function formatLastBackup(lastBackupAt) {
+  const date = new Date(lastBackupAt)
+  if (!lastBackupAt || Number.isNaN(date.getTime())) return 'Never exported'
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
+}
+
+function needsBackupReminder(lastBackupAt) {
+  const lastBackup = new Date(lastBackupAt)
+  return !lastBackupAt || Number.isNaN(lastBackup.getTime()) || Date.now() - lastBackup > 30 * 24 * 60 * 60 * 1000
+}
+
 function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts }) {
   const fileInput = useRef(null)
   const [exportUrl, setExportUrl] = useState('')
   const [backupMessage, setBackupMessage] = useState('')
   const [backupError, setBackupError] = useState('')
+  const [lastBackupAt, setLastBackupAt] = useState(getLastBackupAt)
   const [workoutText, setWorkoutText] = useState('')
   const [preview, setPreview] = useState([])
   const [parseMessage, setParseMessage] = useState('')
@@ -43,6 +61,7 @@ function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts
   }, [workouts, bodyweightEntries])
 
   function noteExport() {
+    setLastBackupAt(recordBackupExport())
     setBackupError('')
     setBackupMessage('JSON backup downloaded.')
   }
@@ -61,7 +80,12 @@ function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts
 
       if (!confirmed) return
 
-      onRestore(backup)
+      if (!onRestore(backup)) {
+        setBackupMessage('')
+        setBackupError('The backup could not be restored. Your existing data was not changed.')
+        return
+      }
+
       setBackupError('')
       setBackupMessage('Backup restored on this device.')
     } catch (error) {
@@ -94,7 +118,12 @@ function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts
 
   function savePreview() {
     const count = preview.length
-    onSaveParsedWorkouts(preview)
+    if (!onSaveParsedWorkouts(preview)) {
+      setParseMessage('')
+      setParseError('The workouts could not be saved. Your existing data was not changed.')
+      return
+    }
+
     setWorkoutText('')
     setPreview([])
     setParseError('')
@@ -113,6 +142,7 @@ function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts
         <div className="data-card-heading">
           <h2 id="backup-title">JSON backup</h2>
           <p>Exports workouts and bodyweight entries in one file.</p>
+          <p className="backup-status">Last backup: {formatLastBackup(lastBackupAt)}</p>
         </div>
 
         <div className="data-actions">
@@ -140,6 +170,9 @@ function DataView({ workouts, bodyweightEntries, onRestore, onSaveParsedWorkouts
 
         {backupError && <p className="form-message error" role="alert">{backupError}</p>}
         {backupMessage && <p className="form-message success" role="status">{backupMessage}</p>}
+        {needsBackupReminder(lastBackupAt) && (
+          <p className="backup-reminder">A monthly export is a simple extra safeguard for your data.</p>
+        )}
       </section>
 
       <section className="data-card text-import-card" aria-labelledby="text-import-title">

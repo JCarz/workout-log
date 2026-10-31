@@ -5,9 +5,8 @@ import HistoryView from './components/HistoryView.jsx'
 import {
   clearWorkoutDraft,
   deleteWorkout,
-  loadBodyweightEntries,
+  loadAppData,
   loadWorkoutDraft,
-  loadWorkouts,
   restoreAllData,
   saveBodyweightEntry,
   saveWorkoutDraft,
@@ -50,17 +49,19 @@ function formatDate(date) {
 }
 
 function App() {
+  const [initialData] = useState(loadAppData)
   const [restoredDraft] = useState(loadWorkoutDraft)
   const [date, setDate] = useState(() => restoredDraft?.date ?? localDate())
   const [exercises, setExercises] = useState(() => restoredDraft?.exercises ?? [])
-  const [workouts, setWorkouts] = useState(loadWorkouts)
-  const [bodyweightEntries, setBodyweightEntries] = useState(loadBodyweightEntries)
+  const [workouts, setWorkouts] = useState(() => initialData.workouts)
+  const [bodyweightEntries, setBodyweightEntries] = useState(() => initialData.bodyweightEntries)
   const [view, setView] = useState('log')
   const [selectedExercise, setSelectedExercise] = useState('')
   const [editingWorkoutId, setEditingWorkoutId] = useState(() => restoredDraft?.editingWorkoutId ?? '')
   const [historyNotice, setHistoryNotice] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [dataStorageError, setDataStorageError] = useState(() => initialData.error)
   const [hasResumedDraft, setHasResumedDraft] = useState(() => Boolean(restoredDraft))
   const [isFormDirty, setIsFormDirty] = useState(() => Boolean(restoredDraft))
   const [waitingWorker, setWaitingWorker] = useState(null)
@@ -271,7 +272,13 @@ function App() {
     }
 
     if (isEditing) {
-      setWorkouts(updateWorkout(workout))
+      const result = updateWorkout(workout)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      setWorkouts(result.workouts)
       resetForm()
       setHistoryNotice('Workout updated.')
       setSelectedExercise('')
@@ -280,7 +287,13 @@ function App() {
       return
     }
 
-    setWorkouts(saveWorkout(workout))
+    const result = saveWorkout(workout)
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+
+    setWorkouts(result.workouts)
     clearCurrentDraft()
     setExercises([])
     setError('')
@@ -319,7 +332,13 @@ function App() {
 
     if (!confirmed) return
 
-    setWorkouts(deleteWorkout(workout.id))
+    const result = deleteWorkout(workout.id)
+    if (result.error) {
+      setDataStorageError(result.error)
+      return
+    }
+
+    setWorkouts(result.workouts)
     setHistoryNotice('Workout deleted.')
   }
 
@@ -366,13 +385,27 @@ function App() {
   }
 
   function addBodyweightEntry(entry) {
-    setBodyweightEntries(saveBodyweightEntry({ ...entry, id: createId() }))
+    const result = saveBodyweightEntry({ ...entry, id: createId() })
+    if (result.error) {
+      setDataStorageError(result.error)
+      return false
+    }
+
+    setBodyweightEntries(result.bodyweightEntries)
+    return true
   }
 
   function restoreData(backup) {
     const restored = restoreAllData(backup)
+    if (restored.error) {
+      setDataStorageError(restored.error)
+      return false
+    }
+
     setWorkouts(restored.workouts)
     setBodyweightEntries(restored.bodyweightEntries)
+    setDataStorageError('')
+    return true
   }
 
   function addParsedWorkouts(parsedWorkouts) {
@@ -386,7 +419,14 @@ function App() {
       })),
     }))
 
-    setWorkouts(saveWorkouts(importedWorkouts))
+    const result = saveWorkouts(importedWorkouts)
+    if (result.error) {
+      setDataStorageError(result.error)
+      return false
+    }
+
+    setWorkouts(result.workouts)
+    return true
   }
 
   return (
@@ -429,6 +469,10 @@ function App() {
             </button>
           </nav>
         </header>
+
+        {dataStorageError && (
+          <p className="form-message error data-storage-error" role="alert">{dataStorageError}</p>
+        )}
 
         {waitingWorker && (
           <div className="update-notice" role="status">

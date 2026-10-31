@@ -190,6 +190,8 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 .data-card { padding: 18px; border: 1px solid #d5dbd3; border-radius: 14px; background: #fff; }
 .data-card-heading { display: grid; gap: 5px; margin-bottom: 16px; }
 .data-card-heading p { margin-bottom: 0; color: #657068; font-size: 0.88rem; }
+.backup-status { color: #315d40 !important; font-weight: 750; }
+.backup-reminder { margin: 14px 0 0; color: #657068; font-size: 0.84rem; line-height: 1.45; }
 .data-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .data-button { display: grid; place-items: center; min-height: 48px; border: 1px solid #aec9b4; border-radius: 10px; background: #f6faf5; color: #2d6640; padding: 10px 14px; font-weight: 800; text-align: center; text-decoration: none; }
 .primary-data-button { border-color: #24613a; background: #24613a; color: #fff; }

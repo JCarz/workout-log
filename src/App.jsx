@@ -48,6 +48,56 @@ function formatDate(date) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
+function normalizeExerciseName(name) {
+  return typeof name === 'string' ? name.trim().replace(/\s+/g, ' ').toLowerCase() : ''
+}
+
+function getLoggedExercises(workouts) {
+  const exercisesByName = new Map()
+
+  workouts.forEach((workout) => {
+    workout.exercises.forEach((exercise) => {
+      const displayName = exercise.name.trim().replace(/\s+/g, ' ')
+      const normalizedName = normalizeExerciseName(displayName)
+      if (!normalizedName) return
+
+      const existing = exercisesByName.get(normalizedName)
+      if (!existing) {
+        exercisesByName.set(normalizedName, {
+          displayName,
+          normalizedName,
+          uses: 1,
+          lastUsed: workout.date,
+        })
+        return
+      }
+
+      existing.uses += 1
+      if (workout.date > existing.lastUsed) {
+        existing.displayName = displayName
+        existing.lastUsed = workout.date
+      }
+    })
+  })
+
+  return [...exercisesByName.values()].sort(
+    (first, second) =>
+      second.lastUsed.localeCompare(first.lastUsed)
+      || second.uses - first.uses
+      || first.displayName.localeCompare(second.displayName),
+  )
+}
+
+function getExerciseSuggestions(loggedExercises, name) {
+  const normalizedName = normalizeExerciseName(name)
+  if (!normalizedName) return []
+
+  return loggedExercises
+    .filter((exercise) => exercise.normalizedName.includes(normalizedName))
+    .filter((exercise) => exercise.normalizedName !== normalizedName)
+    .slice(0, 6)
+}
+
 function App() {
   const [initialData] = useState(loadAppData)
   const [restoredDraft] = useState(loadWorkoutDraft)
@@ -70,6 +120,10 @@ function App() {
 
   const isEditing = Boolean(editingWorkoutId)
   const lastWorkout = getMostRecentWorkout(workouts)
+  const loggedExercises = getLoggedExercises(workouts)
+  const loggedExerciseNames = new Map(
+    loggedExercises.map((exercise) => [exercise.normalizedName, exercise.displayName]),
+  )
 
   function saveCurrentDraft() {
     saveWorkoutDraft({ date, exercises, editingWorkoutId })
@@ -178,9 +232,12 @@ function App() {
   }
 
   function updateExerciseName(exerciseId, name) {
+    const existingName = loggedExerciseNames.get(normalizeExerciseName(name))
+    const displayedName = existingName ?? name
+
     setExercises((current) =>
       current.map((exercise) =>
-        exercise.id === exerciseId ? { ...exercise, name } : exercise,
+        exercise.id === exerciseId ? { ...exercise, name: displayedName } : exercise,
       ),
     )
     setIsFormDirty(true)
@@ -545,16 +602,33 @@ function App() {
                 <fieldset className="exercise-card" key={exercise.id}>
                   <legend>Exercise {exerciseIndex + 1}</legend>
                   <div className="exercise-name-row">
-                    <label className="sr-only" htmlFor={`exercise-${exercise.id}`}>
-                      Exercise name
-                    </label>
-                    <input
-                      id={`exercise-${exercise.id}`}
-                      type="text"
-                      placeholder="e.g. Barbell squat"
-                      value={exercise.name}
-                      onChange={(event) => updateExerciseName(exercise.id, event.target.value)}
-                    />
+                    <div className="exercise-name-field">
+                      <label className="sr-only" htmlFor={`exercise-${exercise.id}`}>
+                        Exercise name
+                      </label>
+                      <input
+                        id={`exercise-${exercise.id}`}
+                        type="text"
+                        placeholder="e.g. Barbell squat"
+                        value={exercise.name}
+                        onChange={(event) => updateExerciseName(exercise.id, event.target.value)}
+                        autoComplete="off"
+                      />
+                      {getExerciseSuggestions(loggedExercises, exercise.name).length > 0 && (
+                        <div className="exercise-suggestions" role="listbox" aria-label="Exercise suggestions">
+                          {getExerciseSuggestions(loggedExercises, exercise.name).map((suggestion) => (
+                            <button
+                              key={suggestion.normalizedName}
+                              type="button"
+                              role="option"
+                              onClick={() => updateExerciseName(exercise.id, suggestion.displayName)}
+                            >
+                              {suggestion.displayName}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button
                       className="text-button danger"
                       type="button"

@@ -100,6 +100,11 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 .exercise-card legend { padding: 0 5px; color: #607165; font-size: 0.76rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
 
 .exercise-name-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.exercise-name-field { min-width: 0; }
+.exercise-suggestions { overflow: hidden; margin-top: 7px; border: 1px solid #bfd0c1; border-radius: 10px; background: #f7faf6; }
+.exercise-suggestions button { display: block; width: 100%; min-height: 48px; border: 0; background: transparent; color: #245a36; padding: 11px 12px; font-size: 0.94rem; font-weight: 750; text-align: left; }
+.exercise-suggestions button + button { border-top: 1px solid #d9e3d9; }
+.exercise-suggestions button:active { background: #e4f0e5; }
 
 .text-button { border: 0; background: transparent; padding: 10px 2px; font-size: 0.88rem; font-weight: 700; }
 .danger { color: #aa3d31; }

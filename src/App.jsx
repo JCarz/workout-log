@@ -25,8 +25,12 @@ function createId() {
   return crypto.randomUUID()
 }
 
-function createSet() {
-  return { id: createId(), reps: '', weight: '' }
+function createSet(previousSet = {}) {
+  return {
+    id: createId(),
+    reps: previousSet.reps ?? '',
+    weight: previousSet.weight ?? '',
+  }
 }
 
 function createExercise() {
@@ -68,6 +72,7 @@ function getLoggedExercises(workouts) {
           normalizedName,
           uses: 1,
           lastUsed: workout.date,
+          lastSets: exercise.sets,
         })
         return
       }
@@ -76,6 +81,7 @@ function getLoggedExercises(workouts) {
       if (workout.date > existing.lastUsed) {
         existing.displayName = displayName
         existing.lastUsed = workout.date
+        existing.lastSets = exercise.sets
       }
     })
   })
@@ -96,6 +102,21 @@ function getExerciseSuggestions(loggedExercises, name) {
     .filter((exercise) => exercise.normalizedName.includes(normalizedName))
     .filter((exercise) => exercise.normalizedName !== normalizedName)
     .slice(0, 6)
+}
+
+function getLastExerciseSummary(loggedExerciseDetails, name) {
+  const previousExercise = loggedExerciseDetails.get(normalizeExerciseName(name))
+  if (!previousExercise?.lastSets?.length) return null
+
+  const topSet = previousExercise.lastSets.reduce((top, set) =>
+    !top || set.weight > top.weight || (set.weight === top.weight && set.reps > top.reps) ? set : top,
+  )
+
+  return { setCount: previousExercise.lastSets.length, topSet }
+}
+
+function formatSetValue(value) {
+  return Number.isInteger(value) ? value : Number(value).toFixed(1)
 }
 
 function App() {
@@ -123,6 +144,9 @@ function App() {
   const loggedExercises = getLoggedExercises(workouts)
   const loggedExerciseNames = new Map(
     loggedExercises.map((exercise) => [exercise.normalizedName, exercise.displayName]),
+  )
+  const loggedExerciseDetails = new Map(
+    loggedExercises.map((exercise) => [exercise.normalizedName, exercise]),
   )
 
   function saveCurrentDraft() {
@@ -247,9 +271,23 @@ function App() {
     setExercises((current) =>
       current.map((exercise) =>
         exercise.id === exerciseId
-          ? { ...exercise, sets: [...exercise.sets, createSet()] }
+          ? { ...exercise, sets: [...exercise.sets, createSet(exercise.sets[exercise.sets.length - 1])] }
           : exercise,
       ),
+    )
+    setIsFormDirty(true)
+    setMessage('')
+    setError('')
+  }
+
+  function repeatLastSet(exerciseId) {
+    setExercises((current) =>
+      current.map((exercise) => {
+        if (exercise.id !== exerciseId || exercise.sets.length === 0) return exercise
+
+        const previousSet = exercise.sets[exercise.sets.length - 1]
+        return { ...exercise, sets: [...exercise.sets, createSet(previousSet)] }
+      }),
     )
     setIsFormDirty(true)
     setMessage('')
@@ -598,8 +636,12 @@ function App() {
             <p className="empty-state">No exercises yet. Start by adding one below.</p>
           ) : (
             <div className="exercise-list">
-              {exercises.map((exercise, exerciseIndex) => (
-                <fieldset className="exercise-card" key={exercise.id}>
+              {exercises.map((exercise, exerciseIndex) => {
+                const suggestions = getExerciseSuggestions(loggedExercises, exercise.name)
+                const lastExerciseSummary = getLastExerciseSummary(loggedExerciseDetails, exercise.name)
+
+                return (
+                  <fieldset className="exercise-card" key={exercise.id}>
                   <legend>Exercise {exerciseIndex + 1}</legend>
                   <div className="exercise-name-row">
                     <div className="exercise-name-field">
@@ -614,9 +656,9 @@ function App() {
                         onChange={(event) => updateExerciseName(exercise.id, event.target.value)}
                         autoComplete="off"
                       />
-                      {getExerciseSuggestions(loggedExercises, exercise.name).length > 0 && (
+                      {suggestions.length > 0 && (
                         <div className="exercise-suggestions" role="listbox" aria-label="Exercise suggestions">
-                          {getExerciseSuggestions(loggedExercises, exercise.name).map((suggestion) => (
+                          {suggestions.map((suggestion) => (
                             <button
                               key={suggestion.normalizedName}
                               type="button"
@@ -637,6 +679,15 @@ function App() {
                       Remove
                     </button>
                   </div>
+
+                  {lastExerciseSummary && (
+                    <p className="exercise-history-hint">
+                      Last time: {lastExerciseSummary.setCount}{' '}
+                      {lastExerciseSummary.setCount === 1 ? 'set' : 'sets'}, top set{' '}
+                      {formatSetValue(lastExerciseSummary.topSet.reps)} x{' '}
+                      {formatSetValue(lastExerciseSummary.topSet.weight)}
+                    </p>
+                  )}
 
                   {exercise.sets.length > 0 && (
                     <div className="sets" aria-label={`${exercise.name || 'Exercise'} sets`}>
@@ -686,11 +737,23 @@ function App() {
                     </div>
                   )}
 
-                  <button className="secondary-button" type="button" onClick={() => addSet(exercise.id)}>
-                    Add set
-                  </button>
-                </fieldset>
-              ))}
+                  <div className="exercise-set-actions">
+                    {exercise.sets.length > 0 && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => repeatLastSet(exercise.id)}
+                      >
+                        Repeat last set
+                      </button>
+                    )}
+                    <button className="secondary-button" type="button" onClick={() => addSet(exercise.id)}>
+                      Add set
+                    </button>
+                  </div>
+                  </fieldset>
+                )
+              })}
             </div>
           )}
 

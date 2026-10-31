@@ -105,6 +105,7 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 .exercise-suggestions button { display: block; width: 100%; min-height: 48px; border: 0; background: transparent; color: #245a36; padding: 11px 12px; font-size: 0.94rem; font-weight: 750; text-align: left; }
 .exercise-suggestions button + button { border-top: 1px solid #d9e3d9; }
 .exercise-suggestions button:active { background: #e4f0e5; }
+.exercise-history-hint { margin: 12px 0 0; border-radius: 9px; background: #f0f4ef; color: #526156; padding: 9px 11px; font-size: 0.82rem; font-weight: 700; line-height: 1.35; }
 
 .text-button { border: 0; background: transparent; padding: 10px 2px; font-size: 0.88rem; font-weight: 700; }
 .danger { color: #aa3d31; }
@@ -120,6 +121,8 @@ h2 { margin-bottom: 0; font-size: 1.05rem; }
 
 .secondary-button, .add-exercise, .save-button, .cancel-edit-button { min-height: 48px; border-radius: 10px; padding: 10px 15px; font-weight: 800; }
 .secondary-button { width: 100%; border: 1px solid #aec9b4; background: #f6faf5; color: #2d6640; }
+.exercise-set-actions { display: grid; gap: 9px; margin-top: 13px; }
+.exercise-set-actions .secondary-button { margin: 0; }
 .add-exercise { width: 100%; margin-top: 16px; border: 1px dashed #769d80; background: transparent; color: #2e6841; }
 .save-button { width: 100%; margin-top: 24px; border: 0; background: #24613a; color: #fff; box-shadow: 0 4px 0 #164426; }
 .save-button:active { transform: translateY(2px); box-shadow: 0 2px 0 #164426; }

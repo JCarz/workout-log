@@ -63,6 +63,8 @@ function App() {
   const [error, setError] = useState('')
   const [hasResumedDraft, setHasResumedDraft] = useState(() => Boolean(restoredDraft))
   const [isFormDirty, setIsFormDirty] = useState(() => Boolean(restoredDraft))
+  const [waitingWorker, setWaitingWorker] = useState(null)
+  const [isReloadingForUpdate, setIsReloadingForUpdate] = useState(false)
   const draftTimerRef = useRef(null)
 
   const isEditing = Boolean(editingWorkoutId)
@@ -97,6 +99,27 @@ function App() {
       }
     }
   }, [date, editingWorkoutId, exercises, isFormDirty])
+
+  useEffect(() => {
+    function showUpdate(event) {
+      if (event.detail?.waiting) setWaitingWorker(event.detail.waiting)
+    }
+
+    window.addEventListener('workout-log:update-ready', showUpdate)
+    return () => window.removeEventListener('workout-log:update-ready', showUpdate)
+  }, [])
+
+  function reloadForUpdate() {
+    if (!waitingWorker || isReloadingForUpdate) return
+
+    setIsReloadingForUpdate(true)
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      () => window.location.reload(),
+      { once: true },
+    )
+    waitingWorker.postMessage({ type: 'ACTIVATE_UPDATE' })
+  }
 
   useEffect(() => {
     if (!isFormDirty) return undefined
@@ -406,6 +429,17 @@ function App() {
             </button>
           </nav>
         </header>
+
+        {waitingWorker && (
+          <div className="update-notice" role="status">
+            <span>
+              Update available{isFormDirty ? '. Your workout draft will be saved first.' : '.'}
+            </span>
+            <button type="button" onClick={reloadForUpdate} disabled={isReloadingForUpdate}>
+              {isReloadingForUpdate ? 'Reloading…' : 'Reload'}
+            </button>
+          </div>
+        )}
 
         {view === 'log' ? (
           <section className="view-panel workout-form" aria-labelledby="page-title">

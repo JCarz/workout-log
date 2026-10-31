@@ -21,6 +21,10 @@ button { cursor: pointer; }
 
 .app-name { margin: 0; color: #315840; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
 
+.update-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -16px 4px 22px; border: 1px solid #aec9b4; border-radius: 10px; background: #edf5ed; color: #245a36; padding: 9px 12px; font-size: 0.84rem; font-weight: 750; }
+.update-notice button { flex: 0 0 auto; border: 0; border-radius: 7px; background: #24613a; color: #fff; padding: 6px 10px; font-size: 0.82rem; font-weight: 850; }
+.update-notice button:disabled { cursor: wait; opacity: 0.7; }
+
 .view-switcher { display: flex; gap: 3px; padding: 3px; border-radius: 10px; background: #e2e6df; }
 
 .view-switcher button { min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: #58635b; padding: 7px 11px; font-size: 0.85rem; font-weight: 800; }

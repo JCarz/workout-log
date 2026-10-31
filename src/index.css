@@ -44,6 +44,9 @@ h1 { margin-bottom: 8px; font-size: clamp(2rem, 8vw, 2.7rem); line-height: 1; le
 
 .intro { margin-bottom: 0; color: #5b665e; font-size: 1rem; }
 
+.draft-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -12px 4px 22px; border: 1px solid #aec9b4; border-radius: 10px; background: #edf5ed; color: #245a36; padding: 10px 12px; font-size: 0.88rem; font-weight: 750; }
+.draft-notice button { border: 0; border-radius: 7px; background: transparent; color: #245a36; padding: 6px 7px; font-size: 0.85rem; font-weight: 850; text-decoration: underline; text-underline-offset: 2px; }
+
 .date-field { display: grid; gap: 8px; margin-bottom: 30px; font-weight: 700; }
 
 .repeat-workout-button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 64px; margin: -14px 0 28px; border: 1px solid #aec9b4; border-radius: 12px; background: #edf5ed; color: #245a36; padding: 11px 15px; text-align: left; }

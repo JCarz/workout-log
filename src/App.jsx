@@ -1,13 +1,16 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import BodyweightView from './components/BodyweightView.jsx'
 import DataView from './components/DataView.jsx'
 import HistoryView from './components/HistoryView.jsx'
 import {
+  clearWorkoutDraft,
   deleteWorkout,
   loadBodyweightEntries,
+  loadWorkoutDraft,
   loadWorkouts,
   restoreAllData,
   saveBodyweightEntry,
+  saveWorkoutDraft,
   saveWorkout,
   saveWorkouts,
   updateWorkout,
@@ -47,22 +50,81 @@ function formatDate(date) {
 }
 
 function App() {
-  const [date, setDate] = useState(localDate)
-  const [exercises, setExercises] = useState([])
+  const [restoredDraft] = useState(loadWorkoutDraft)
+  const [date, setDate] = useState(() => restoredDraft?.date ?? localDate())
+  const [exercises, setExercises] = useState(() => restoredDraft?.exercises ?? [])
   const [workouts, setWorkouts] = useState(loadWorkouts)
   const [bodyweightEntries, setBodyweightEntries] = useState(loadBodyweightEntries)
   const [view, setView] = useState('log')
   const [selectedExercise, setSelectedExercise] = useState('')
-  const [editingWorkoutId, setEditingWorkoutId] = useState('')
+  const [editingWorkoutId, setEditingWorkoutId] = useState(() => restoredDraft?.editingWorkoutId ?? '')
   const [historyNotice, setHistoryNotice] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [hasResumedDraft, setHasResumedDraft] = useState(() => Boolean(restoredDraft))
+  const [isFormDirty, setIsFormDirty] = useState(() => Boolean(restoredDraft))
+  const draftTimerRef = useRef(null)
 
   const isEditing = Boolean(editingWorkoutId)
   const lastWorkout = getMostRecentWorkout(workouts)
 
+  function saveCurrentDraft() {
+    saveWorkoutDraft({ date, exercises, editingWorkoutId })
+  }
+
+  function clearCurrentDraft() {
+    if (draftTimerRef.current) {
+      window.clearTimeout(draftTimerRef.current)
+      draftTimerRef.current = null
+    }
+    clearWorkoutDraft()
+    setIsFormDirty(false)
+    setHasResumedDraft(false)
+  }
+
+  useEffect(() => {
+    if (!isFormDirty) return undefined
+
+    draftTimerRef.current = window.setTimeout(() => {
+      saveCurrentDraft()
+      draftTimerRef.current = null
+    }, 500)
+
+    return () => {
+      if (draftTimerRef.current) {
+        window.clearTimeout(draftTimerRef.current)
+        draftTimerRef.current = null
+      }
+    }
+  }, [date, editingWorkoutId, exercises, isFormDirty])
+
+  useEffect(() => {
+    if (!isFormDirty) return undefined
+
+    function flushDraft() {
+      if (draftTimerRef.current) {
+        window.clearTimeout(draftTimerRef.current)
+        draftTimerRef.current = null
+      }
+      saveCurrentDraft()
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', flushDraft)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', flushDraft)
+    }
+  }, [date, editingWorkoutId, exercises, isFormDirty])
+
   function addExercise() {
     setExercises((current) => [...current, createExercise()])
+    setIsFormDirty(true)
     setMessage('')
     setError('')
   }
@@ -81,12 +143,14 @@ function App() {
         })),
       })),
     )
+    setIsFormDirty(true)
     setMessage('Last workout copied. Adjust your sets, then save.')
     setError('')
   }
 
   function removeExercise(exerciseId) {
     setExercises((current) => current.filter((exercise) => exercise.id !== exerciseId))
+    setIsFormDirty(true)
   }
 
   function updateExerciseName(exerciseId, name) {
@@ -95,6 +159,7 @@ function App() {
         exercise.id === exerciseId ? { ...exercise, name } : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function addSet(exerciseId) {
@@ -105,6 +170,7 @@ function App() {
           : exercise,
       ),
     )
+    setIsFormDirty(true)
     setMessage('')
     setError('')
   }
@@ -117,6 +183,7 @@ function App() {
           : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function updateSet(exerciseId, setId, field, value) {
@@ -132,6 +199,7 @@ function App() {
           : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function validateWorkout() {
@@ -190,12 +258,14 @@ function App() {
     }
 
     setWorkouts(saveWorkout(workout))
+    clearCurrentDraft()
     setExercises([])
     setError('')
     setMessage('Workout saved on this device.')
   }
 
   function resetForm() {
+    clearCurrentDraft()
     setDate(localDate())
     setExercises([])
     setEditingWorkoutId('')
@@ -204,6 +274,7 @@ function App() {
   }
 
   function editWorkout(workout) {
+    clearCurrentDraft()
     setDate(workout.date)
     setExercises(
       workout.exercises.map((exercise) => ({
@@ -233,6 +304,15 @@ function App() {
     resetForm()
     setHistoryNotice('')
     setView('history')
+  }
+
+  function discardResumedDraft() {
+    clearCurrentDraft()
+    setDate(localDate())
+    setExercises([])
+    setEditingWorkoutId('')
+    setMessage('')
+    setError('')
   }
 
   function showLog() {
@@ -337,6 +417,15 @@ function App() {
               </p>
             </header>
 
+            {hasResumedDraft && (
+              <div className="draft-notice" role="status">
+                <span>Resumed your unsaved workout</span>
+                <button type="button" onClick={discardResumedDraft}>
+                  Discard
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} noValidate>
           <label className="date-field" htmlFor="workout-date">
             <span>Date</span>
@@ -344,7 +433,10 @@ function App() {
               id="workout-date"
               type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={(event) => {
+                setDate(event.target.value)
+                setIsFormDirty(true)
+              }}
               required
             />
           </label>

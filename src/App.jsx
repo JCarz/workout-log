@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import BodyweightView from './components/BodyweightView.jsx'
 import DataView from './components/DataView.jsx'
 import HistoryView from './components/HistoryView.jsx'
+import { getExerciseGroups, normalizeExerciseName } from './lib/exercises.js'
 import {
   clearWorkoutDraft,
   deleteWorkout,
@@ -52,55 +53,13 @@ function formatDate(date) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
-function normalizeExerciseName(name) {
-  return typeof name === 'string' ? name.trim().replace(/\s+/g, ' ').toLowerCase() : ''
-}
-
-function getLoggedExercises(workouts) {
-  const exercisesByName = new Map()
-
-  workouts.forEach((workout) => {
-    workout.exercises.forEach((exercise) => {
-      const displayName = exercise.name.trim().replace(/\s+/g, ' ')
-      const normalizedName = normalizeExerciseName(displayName)
-      if (!normalizedName) return
-
-      const existing = exercisesByName.get(normalizedName)
-      if (!existing) {
-        exercisesByName.set(normalizedName, {
-          displayName,
-          normalizedName,
-          uses: 1,
-          lastUsed: workout.date,
-          lastSets: exercise.sets,
-        })
-        return
-      }
-
-      existing.uses += 1
-      if (workout.date > existing.lastUsed) {
-        existing.displayName = displayName
-        existing.lastUsed = workout.date
-        existing.lastSets = exercise.sets
-      }
-    })
-  })
-
-  return [...exercisesByName.values()].sort(
-    (first, second) =>
-      second.lastUsed.localeCompare(first.lastUsed)
-      || second.uses - first.uses
-      || first.displayName.localeCompare(second.displayName),
-  )
-}
-
 function getExerciseSuggestions(loggedExercises, name) {
   const normalizedName = normalizeExerciseName(name)
   if (!normalizedName) return []
 
   return loggedExercises
-    .filter((exercise) => exercise.normalizedName.includes(normalizedName))
-    .filter((exercise) => exercise.normalizedName !== normalizedName)
+    .filter((exercise) => exercise.key.includes(normalizedName))
+    .filter((exercise) => exercise.key !== normalizedName)
     .slice(0, 6)
 }
 
@@ -141,13 +100,24 @@ function App() {
 
   const isEditing = Boolean(editingWorkoutId)
   const lastWorkout = getMostRecentWorkout(workouts)
-  const loggedExercises = getLoggedExercises(workouts)
+  const loggedExercises = getExerciseGroups(workouts)
   const loggedExerciseNames = new Map(
-    loggedExercises.map((exercise) => [exercise.normalizedName, exercise.displayName]),
+    loggedExercises.map((exercise) => [exercise.key, exercise.displayName]),
   )
   const loggedExerciseDetails = new Map(
-    loggedExercises.map((exercise) => [exercise.normalizedName, exercise]),
+    loggedExercises.map((exercise) => [exercise.key, exercise]),
   )
+
+  function createExerciseNameResolver() {
+    const exerciseNames = new Map(loggedExerciseNames)
+
+    return (name) => {
+      const key = normalizeExerciseName(name)
+      const displayName = exerciseNames.get(key) ?? name.trim()
+      if (key) exerciseNames.set(key, displayName)
+      return displayName
+    }
+  }
 
   function saveCurrentDraft() {
     saveWorkoutDraft({ date, exercises, editingWorkoutId })
@@ -352,12 +322,13 @@ function App() {
       return
     }
 
+    const resolveExerciseName = createExerciseNameResolver()
     const workout = {
       id: editingWorkoutId || createId(),
       date,
       exercises: exercises.map((exercise) => ({
         id: exercise.id,
-        name: exercise.name.trim(),
+        name: resolveExerciseName(exercise.name),
         sets: exercise.sets.map((set) => ({
           id: set.id,
           reps: Number(set.reps),
@@ -504,12 +475,13 @@ function App() {
   }
 
   function addParsedWorkouts(parsedWorkouts) {
+    const resolveExerciseName = createExerciseNameResolver()
     const importedWorkouts = parsedWorkouts.map((workout) => ({
       id: createId(),
       date: workout.date,
       exercises: workout.exercises.map((exercise) => ({
         id: createId(),
-        name: exercise.name,
+        name: resolveExerciseName(exercise.name),
         sets: exercise.sets.map((set) => ({ ...set, id: createId() })),
       })),
     }))
@@ -660,7 +632,7 @@ function App() {
                         <div className="exercise-suggestions" role="listbox" aria-label="Exercise suggestions">
                           {suggestions.map((suggestion) => (
                             <button
-                              key={suggestion.normalizedName}
+                              key={suggestion.key}
                               type="button"
                               role="option"
                               onClick={() => updateExerciseName(exercise.id, suggestion.displayName)}
@@ -778,6 +750,7 @@ function App() {
           <HistoryView
             workouts={workouts}
             selectedExercise={selectedExercise}
+            selectedExerciseName={loggedExerciseNames.get(selectedExercise) ?? selectedExercise}
             notice={historyNotice}
             onSelectExercise={setSelectedExercise}
             onEditWorkout={editWorkout}

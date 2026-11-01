@@ -6,14 +6,17 @@ import { getExerciseGroups, normalizeExerciseName } from './lib/exercises.js'
 import {
   clearWorkoutDraft,
   deleteWorkout,
+  getPreExerciseMergeBackup,
   loadAppData,
   loadWorkoutDraft,
+  mergeExerciseNames,
   restoreAllData,
   saveBodyweightEntry,
   saveWorkoutDraft,
   saveWorkout,
   saveWorkouts,
   updateWorkout,
+  undoLastExerciseMerge,
 } from './lib/storage.js'
 
 function localDate() {
@@ -96,6 +99,7 @@ function App() {
   const [isFormDirty, setIsFormDirty] = useState(() => Boolean(restoredDraft))
   const [waitingWorker, setWaitingWorker] = useState(null)
   const [isReloadingForUpdate, setIsReloadingForUpdate] = useState(false)
+  const [hasExerciseMergeBackup, setHasExerciseMergeBackup] = useState(() => Boolean(getPreExerciseMergeBackup()))
   const draftTimerRef = useRef(null)
 
   const isEditing = Boolean(editingWorkoutId)
@@ -496,6 +500,30 @@ function App() {
     return true
   }
 
+  function mergeExercises({ keys, keepName }) {
+    const result = mergeExerciseNames({ keys, keepName })
+    if (result.error) {
+      setDataStorageError(result.error)
+      return result
+    }
+
+    setWorkouts(result.workouts)
+    setHasExerciseMergeBackup(true)
+    return result
+  }
+
+  function undoExerciseMerge() {
+    const result = undoLastExerciseMerge()
+    if (result.error) {
+      setDataStorageError(result.error)
+      return result
+    }
+
+    setWorkouts(result.workouts)
+    setBodyweightEntries(result.bodyweightEntries)
+    return result
+  }
+
   return (
     <main className="page-shell">
       <div className="app-shell">
@@ -763,8 +791,12 @@ function App() {
           <DataView
             workouts={workouts}
             bodyweightEntries={bodyweightEntries}
+            exerciseGroups={loggedExercises}
+            hasExerciseMergeBackup={hasExerciseMergeBackup}
             onRestore={restoreData}
             onSaveParsedWorkouts={addParsedWorkouts}
+            onMergeExercises={mergeExercises}
+            onUndoExerciseMerge={undoExerciseMerge}
           />
         )}
       </div>

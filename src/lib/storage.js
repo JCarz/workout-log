@@ -1,8 +1,11 @@
+import { normalizeExerciseName } from './exercises.js'
+
 const WORKOUTS_KEY = 'workout-log:workouts'
 const BODYWEIGHT_KEY = 'workout-log:bodyweight-entries'
 const WORKOUT_DRAFT_KEY = 'workout-log:draft'
 const SCHEMA_VERSION_KEY = 'workout-log:schema-version'
 const PRE_MIGRATION_BACKUP_KEY = 'workout-log:backup-pre-migration'
+const PRE_EXERCISE_MERGE_BACKUP_KEY = 'workout-log:backup-pre-exercise-merge'
 const LAST_BACKUP_KEY = 'workout-log:last-backup-at'
 const CURRENT_SCHEMA_VERSION = 1
 
@@ -253,6 +256,106 @@ export function restoreAllData({ workouts, bodyweightEntries }) {
 
   const versionError = saveCollection(SCHEMA_VERSION_KEY, CURRENT_SCHEMA_VERSION, 'data version')
   return { workouts, bodyweightEntries, error: versionError }
+}
+
+function savePreExerciseMergeBackup(workouts, bodyweightEntries) {
+  try {
+    localStorage.setItem(
+      PRE_EXERCISE_MERGE_BACKUP_KEY,
+      JSON.stringify({
+        createdAt: new Date().toISOString(),
+        workouts,
+        bodyweightEntries,
+      }),
+    )
+    return ''
+  } catch {
+    return 'A pre-merge backup could not be saved, so no exercise names were changed.'
+  }
+}
+
+function readPreExerciseMergeBackup() {
+  try {
+    const backup = JSON.parse(localStorage.getItem(PRE_EXERCISE_MERGE_BACKUP_KEY) ?? 'null')
+    if (!isRecord(backup) || !Array.isArray(backup.workouts) || !Array.isArray(backup.bodyweightEntries)) {
+      return { backup: null, error: '' }
+    }
+
+    return { backup, error: '' }
+  } catch {
+    return { backup: null, error: 'The pre-merge backup could not be read. Your current data was not changed.' }
+  }
+}
+
+export function getPreExerciseMergeBackup() {
+  return readPreExerciseMergeBackup().backup
+}
+
+export function mergeExerciseNames({ keys, keepName }) {
+  const exerciseKeys = new Set((Array.isArray(keys) ? keys : []).filter((key) => typeof key === 'string' && key))
+  const keptName = typeof keepName === 'string' ? keepName.trim() : ''
+  if (exerciseKeys.size === 0 || !keptName) {
+    return { workouts: [], error: 'Choose exercise names to merge and a name to keep.' }
+  }
+
+  const workoutResult = readWorkouts()
+  const bodyweightResult = readBodyweightEntries()
+  if (workoutResult.error || bodyweightResult.error) {
+    return { workouts: workoutResult.value, error: workoutResult.error || bodyweightResult.error }
+  }
+
+  const backupError = savePreExerciseMergeBackup(workoutResult.raw, bodyweightResult.raw)
+  if (backupError) return { workouts: workoutResult.value, error: backupError }
+
+  let changedExerciseCount = 0
+  let changedWorkoutCount = 0
+  const workouts = workoutResult.raw.map((workout) => {
+    if (!isRecord(workout) || !Array.isArray(workout.exercises)) return workout
+
+    let changedWorkout = false
+    const exercises = workout.exercises.map((exercise) => {
+      if (!isRecord(exercise) || typeof exercise.name !== 'string') return exercise
+
+      if (!exerciseKeys.has(normalizeExerciseName(exercise.name)) || exercise.name === keptName) return exercise
+
+      changedExerciseCount += 1
+      changedWorkout = true
+      return { ...exercise, name: keptName }
+    })
+
+    if (!changedWorkout) return workout
+    changedWorkoutCount += 1
+    return { ...workout, exercises }
+  })
+
+  const saveError = saveCollection(WORKOUTS_KEY, workouts, 'workouts')
+  if (saveError) return { workouts: workoutResult.value, error: saveError }
+
+  return {
+    workouts: readWorkouts().value,
+    error: '',
+    changedExerciseCount,
+    changedWorkoutCount,
+    keepName: keptName,
+  }
+}
+
+export function undoLastExerciseMerge() {
+  const { backup, error } = readPreExerciseMergeBackup()
+  if (error) return { workouts: [], error }
+  if (!backup) return { workouts: [], error: 'There is no pre-merge backup to restore.' }
+
+  const workoutsError = saveCollection(WORKOUTS_KEY, backup.workouts, 'workouts')
+  if (workoutsError) return { workouts: [], error: workoutsError }
+
+  const bodyweightError = saveCollection(BODYWEIGHT_KEY, backup.bodyweightEntries, 'bodyweight entries')
+  if (bodyweightError) return { workouts: [], error: bodyweightError }
+
+  return {
+    workouts: readWorkouts().value,
+    bodyweightEntries: readBodyweightEntries().value,
+    error: '',
+  }
 }
 
 export function getLastBackupAt() {

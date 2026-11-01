@@ -62,12 +62,13 @@ export function getExerciseGroups(workouts) {
 
   return [...groups.values()]
     .map((group) => {
-      const [display] = [...group.displayNames.values()].sort(
+      const variants = [...group.displayNames.values()].sort(
         (first, second) =>
           second.uses - first.uses
           || second.lastUsed.localeCompare(first.lastUsed)
           || first.displayName.localeCompare(second.displayName),
       )
+      const [display] = variants
 
       return {
         key: group.key,
@@ -75,6 +76,7 @@ export function getExerciseGroups(workouts) {
         uses: group.uses,
         lastUsed: group.lastUsed,
         lastSets: group.lastSets,
+        variants,
       }
     })
     .sort(

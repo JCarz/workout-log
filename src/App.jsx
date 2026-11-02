@@ -1,16 +1,22 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import BodyweightView from './components/BodyweightView.jsx'
 import DataView from './components/DataView.jsx'
 import HistoryView from './components/HistoryView.jsx'
+import { getExerciseGroups, normalizeExerciseName } from './lib/exercises.js'
 import {
+  clearWorkoutDraft,
   deleteWorkout,
-  loadBodyweightEntries,
-  loadWorkouts,
+  getPreExerciseMergeBackup,
+  loadAppData,
+  loadWorkoutDraft,
+  mergeExerciseNames,
   restoreAllData,
   saveBodyweightEntry,
+  saveWorkoutDraft,
   saveWorkout,
   saveWorkouts,
   updateWorkout,
+  undoLastExerciseMerge,
 } from './lib/storage.js'
 
 function localDate() {
@@ -23,8 +29,12 @@ function createId() {
   return crypto.randomUUID()
 }
 
-function createSet() {
-  return { id: createId(), reps: '', weight: '' }
+function createSet(previousSet = {}) {
+  return {
+    id: createId(),
+    reps: previousSet.reps ?? '',
+    weight: previousSet.weight ?? '',
+  }
 }
 
 function createExercise() {
@@ -46,23 +56,151 @@ function formatDate(date) {
   }).format(new Date(`${date}T00:00:00`))
 }
 
+function getExerciseSuggestions(loggedExercises, name) {
+  const normalizedName = normalizeExerciseName(name)
+  if (!normalizedName) return []
+
+  return loggedExercises
+    .filter((exercise) => exercise.key.includes(normalizedName))
+    .filter((exercise) => exercise.key !== normalizedName)
+    .slice(0, 6)
+}
+
+function getLastExerciseSummary(loggedExerciseDetails, name) {
+  const previousExercise = loggedExerciseDetails.get(normalizeExerciseName(name))
+  if (!previousExercise?.lastSets?.length) return null
+
+  const topSet = previousExercise.lastSets.reduce((top, set) =>
+    !top || set.weight > top.weight || (set.weight === top.weight && set.reps > top.reps) ? set : top,
+  )
+
+  return { setCount: previousExercise.lastSets.length, topSet }
+}
+
+function formatSetValue(value) {
+  return Number.isInteger(value) ? value : Number(value).toFixed(1)
+}
+
 function App() {
-  const [date, setDate] = useState(localDate)
-  const [exercises, setExercises] = useState([])
-  const [workouts, setWorkouts] = useState(loadWorkouts)
-  const [bodyweightEntries, setBodyweightEntries] = useState(loadBodyweightEntries)
+  const [initialData] = useState(loadAppData)
+  const [restoredDraft] = useState(loadWorkoutDraft)
+  const [date, setDate] = useState(() => restoredDraft?.date ?? localDate())
+  const [exercises, setExercises] = useState(() => restoredDraft?.exercises ?? [])
+  const [workouts, setWorkouts] = useState(() => initialData.workouts)
+  const [bodyweightEntries, setBodyweightEntries] = useState(() => initialData.bodyweightEntries)
   const [view, setView] = useState('log')
   const [selectedExercise, setSelectedExercise] = useState('')
-  const [editingWorkoutId, setEditingWorkoutId] = useState('')
+  const [editingWorkoutId, setEditingWorkoutId] = useState(() => restoredDraft?.editingWorkoutId ?? '')
   const [historyNotice, setHistoryNotice] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [dataStorageError, setDataStorageError] = useState(() => initialData.error)
+  const [hasResumedDraft, setHasResumedDraft] = useState(() => Boolean(restoredDraft))
+  const [isFormDirty, setIsFormDirty] = useState(() => Boolean(restoredDraft))
+  const [waitingWorker, setWaitingWorker] = useState(null)
+  const [isReloadingForUpdate, setIsReloadingForUpdate] = useState(false)
+  const [hasExerciseMergeBackup, setHasExerciseMergeBackup] = useState(() => Boolean(getPreExerciseMergeBackup()))
+  const draftTimerRef = useRef(null)
 
   const isEditing = Boolean(editingWorkoutId)
   const lastWorkout = getMostRecentWorkout(workouts)
+  const loggedExercises = getExerciseGroups(workouts)
+  const loggedExerciseNames = new Map(
+    loggedExercises.map((exercise) => [exercise.key, exercise.displayName]),
+  )
+  const loggedExerciseDetails = new Map(
+    loggedExercises.map((exercise) => [exercise.key, exercise]),
+  )
+
+  function createExerciseNameResolver() {
+    const exerciseNames = new Map(loggedExerciseNames)
+
+    return (name) => {
+      const key = normalizeExerciseName(name)
+      const displayName = exerciseNames.get(key) ?? name.trim()
+      if (key) exerciseNames.set(key, displayName)
+      return displayName
+    }
+  }
+
+  function saveCurrentDraft() {
+    saveWorkoutDraft({ date, exercises, editingWorkoutId })
+  }
+
+  function clearCurrentDraft() {
+    if (draftTimerRef.current) {
+      window.clearTimeout(draftTimerRef.current)
+      draftTimerRef.current = null
+    }
+    clearWorkoutDraft()
+    setIsFormDirty(false)
+    setHasResumedDraft(false)
+  }
+
+  useEffect(() => {
+    if (!isFormDirty) return undefined
+
+    draftTimerRef.current = window.setTimeout(() => {
+      saveCurrentDraft()
+      draftTimerRef.current = null
+    }, 500)
+
+    return () => {
+      if (draftTimerRef.current) {
+        window.clearTimeout(draftTimerRef.current)
+        draftTimerRef.current = null
+      }
+    }
+  }, [date, editingWorkoutId, exercises, isFormDirty])
+
+  useEffect(() => {
+    function showUpdate(event) {
+      if (event.detail?.waiting) setWaitingWorker(event.detail.waiting)
+    }
+
+    window.addEventListener('workout-log:update-ready', showUpdate)
+    return () => window.removeEventListener('workout-log:update-ready', showUpdate)
+  }, [])
+
+  function reloadForUpdate() {
+    if (!waitingWorker || isReloadingForUpdate) return
+
+    setIsReloadingForUpdate(true)
+    navigator.serviceWorker.addEventListener(
+      'controllerchange',
+      () => window.location.reload(),
+      { once: true },
+    )
+    waitingWorker.postMessage({ type: 'ACTIVATE_UPDATE' })
+  }
+
+  useEffect(() => {
+    if (!isFormDirty) return undefined
+
+    function flushDraft() {
+      if (draftTimerRef.current) {
+        window.clearTimeout(draftTimerRef.current)
+        draftTimerRef.current = null
+      }
+      saveCurrentDraft()
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('pagehide', flushDraft)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', flushDraft)
+    }
+  }, [date, editingWorkoutId, exercises, isFormDirty])
 
   function addExercise() {
     setExercises((current) => [...current, createExercise()])
+    setIsFormDirty(true)
     setMessage('')
     setError('')
   }
@@ -81,30 +219,51 @@ function App() {
         })),
       })),
     )
+    setIsFormDirty(true)
     setMessage('Last workout copied. Adjust your sets, then save.')
     setError('')
   }
 
   function removeExercise(exerciseId) {
     setExercises((current) => current.filter((exercise) => exercise.id !== exerciseId))
+    setIsFormDirty(true)
   }
 
   function updateExerciseName(exerciseId, name) {
+    const existingName = loggedExerciseNames.get(normalizeExerciseName(name))
+    const displayedName = existingName ?? name
+
     setExercises((current) =>
       current.map((exercise) =>
-        exercise.id === exerciseId ? { ...exercise, name } : exercise,
+        exercise.id === exerciseId ? { ...exercise, name: displayedName } : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function addSet(exerciseId) {
     setExercises((current) =>
       current.map((exercise) =>
         exercise.id === exerciseId
-          ? { ...exercise, sets: [...exercise.sets, createSet()] }
+          ? { ...exercise, sets: [...exercise.sets, createSet(exercise.sets[exercise.sets.length - 1])] }
           : exercise,
       ),
     )
+    setIsFormDirty(true)
+    setMessage('')
+    setError('')
+  }
+
+  function repeatLastSet(exerciseId) {
+    setExercises((current) =>
+      current.map((exercise) => {
+        if (exercise.id !== exerciseId || exercise.sets.length === 0) return exercise
+
+        const previousSet = exercise.sets[exercise.sets.length - 1]
+        return { ...exercise, sets: [...exercise.sets, createSet(previousSet)] }
+      }),
+    )
+    setIsFormDirty(true)
     setMessage('')
     setError('')
   }
@@ -117,6 +276,7 @@ function App() {
           : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function updateSet(exerciseId, setId, field, value) {
@@ -132,6 +292,7 @@ function App() {
           : exercise,
       ),
     )
+    setIsFormDirty(true)
   }
 
   function validateWorkout() {
@@ -165,12 +326,13 @@ function App() {
       return
     }
 
+    const resolveExerciseName = createExerciseNameResolver()
     const workout = {
       id: editingWorkoutId || createId(),
       date,
       exercises: exercises.map((exercise) => ({
         id: exercise.id,
-        name: exercise.name.trim(),
+        name: resolveExerciseName(exercise.name),
         sets: exercise.sets.map((set) => ({
           id: set.id,
           reps: Number(set.reps),
@@ -180,7 +342,13 @@ function App() {
     }
 
     if (isEditing) {
-      setWorkouts(updateWorkout(workout))
+      const result = updateWorkout(workout)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+
+      setWorkouts(result.workouts)
       resetForm()
       setHistoryNotice('Workout updated.')
       setSelectedExercise('')
@@ -189,13 +357,21 @@ function App() {
       return
     }
 
-    setWorkouts(saveWorkout(workout))
+    const result = saveWorkout(workout)
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+
+    setWorkouts(result.workouts)
+    clearCurrentDraft()
     setExercises([])
     setError('')
     setMessage('Workout saved on this device.')
   }
 
   function resetForm() {
+    clearCurrentDraft()
     setDate(localDate())
     setExercises([])
     setEditingWorkoutId('')
@@ -204,6 +380,7 @@ function App() {
   }
 
   function editWorkout(workout) {
+    clearCurrentDraft()
     setDate(workout.date)
     setExercises(
       workout.exercises.map((exercise) => ({
@@ -225,7 +402,13 @@ function App() {
 
     if (!confirmed) return
 
-    setWorkouts(deleteWorkout(workout.id))
+    const result = deleteWorkout(workout.id)
+    if (result.error) {
+      setDataStorageError(result.error)
+      return
+    }
+
+    setWorkouts(result.workouts)
     setHistoryNotice('Workout deleted.')
   }
 
@@ -233,6 +416,15 @@ function App() {
     resetForm()
     setHistoryNotice('')
     setView('history')
+  }
+
+  function discardResumedDraft() {
+    clearCurrentDraft()
+    setDate(localDate())
+    setExercises([])
+    setEditingWorkoutId('')
+    setMessage('')
+    setError('')
   }
 
   function showLog() {
@@ -263,27 +455,73 @@ function App() {
   }
 
   function addBodyweightEntry(entry) {
-    setBodyweightEntries(saveBodyweightEntry({ ...entry, id: createId() }))
+    const result = saveBodyweightEntry({ ...entry, id: createId() })
+    if (result.error) {
+      setDataStorageError(result.error)
+      return false
+    }
+
+    setBodyweightEntries(result.bodyweightEntries)
+    return true
   }
 
   function restoreData(backup) {
     const restored = restoreAllData(backup)
+    if (restored.error) {
+      setDataStorageError(restored.error)
+      return false
+    }
+
     setWorkouts(restored.workouts)
     setBodyweightEntries(restored.bodyweightEntries)
+    setDataStorageError('')
+    return true
   }
 
   function addParsedWorkouts(parsedWorkouts) {
+    const resolveExerciseName = createExerciseNameResolver()
     const importedWorkouts = parsedWorkouts.map((workout) => ({
       id: createId(),
       date: workout.date,
       exercises: workout.exercises.map((exercise) => ({
         id: createId(),
-        name: exercise.name,
+        name: resolveExerciseName(exercise.name),
         sets: exercise.sets.map((set) => ({ ...set, id: createId() })),
       })),
     }))
 
-    setWorkouts(saveWorkouts(importedWorkouts))
+    const result = saveWorkouts(importedWorkouts)
+    if (result.error) {
+      setDataStorageError(result.error)
+      return false
+    }
+
+    setWorkouts(result.workouts)
+    return true
+  }
+
+  function mergeExercises({ keys, keepName }) {
+    const result = mergeExerciseNames({ keys, keepName })
+    if (result.error) {
+      setDataStorageError(result.error)
+      return result
+    }
+
+    setWorkouts(result.workouts)
+    setHasExerciseMergeBackup(true)
+    return result
+  }
+
+  function undoExerciseMerge() {
+    const result = undoLastExerciseMerge()
+    if (result.error) {
+      setDataStorageError(result.error)
+      return result
+    }
+
+    setWorkouts(result.workouts)
+    setBodyweightEntries(result.bodyweightEntries)
+    return result
   }
 
   return (
@@ -327,6 +565,21 @@ function App() {
           </nav>
         </header>
 
+        {dataStorageError && (
+          <p className="form-message error data-storage-error" role="alert">{dataStorageError}</p>
+        )}
+
+        {waitingWorker && (
+          <div className="update-notice" role="status">
+            <span>
+              Update available{isFormDirty ? '. Your workout draft will be saved first.' : '.'}
+            </span>
+            <button type="button" onClick={reloadForUpdate} disabled={isReloadingForUpdate}>
+              {isReloadingForUpdate ? 'Reloading…' : 'Reload'}
+            </button>
+          </div>
+        )}
+
         {view === 'log' ? (
           <section className="view-panel workout-form" aria-labelledby="page-title">
             <header className="view-heading">
@@ -337,6 +590,15 @@ function App() {
               </p>
             </header>
 
+            {hasResumedDraft && (
+              <div className="draft-notice" role="status">
+                <span>Resumed your unsaved workout</span>
+                <button type="button" onClick={discardResumedDraft}>
+                  Discard
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} noValidate>
           <label className="date-field" htmlFor="workout-date">
             <span>Date</span>
@@ -344,7 +606,10 @@ function App() {
               id="workout-date"
               type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={(event) => {
+                setDate(event.target.value)
+                setIsFormDirty(true)
+              }}
               required
             />
           </label>
@@ -371,20 +636,41 @@ function App() {
             <p className="empty-state">No exercises yet. Start by adding one below.</p>
           ) : (
             <div className="exercise-list">
-              {exercises.map((exercise, exerciseIndex) => (
-                <fieldset className="exercise-card" key={exercise.id}>
+              {exercises.map((exercise, exerciseIndex) => {
+                const suggestions = getExerciseSuggestions(loggedExercises, exercise.name)
+                const lastExerciseSummary = getLastExerciseSummary(loggedExerciseDetails, exercise.name)
+
+                return (
+                  <fieldset className="exercise-card" key={exercise.id}>
                   <legend>Exercise {exerciseIndex + 1}</legend>
                   <div className="exercise-name-row">
-                    <label className="sr-only" htmlFor={`exercise-${exercise.id}`}>
-                      Exercise name
-                    </label>
-                    <input
-                      id={`exercise-${exercise.id}`}
-                      type="text"
-                      placeholder="e.g. Barbell squat"
-                      value={exercise.name}
-                      onChange={(event) => updateExerciseName(exercise.id, event.target.value)}
-                    />
+                    <div className="exercise-name-field">
+                      <label className="sr-only" htmlFor={`exercise-${exercise.id}`}>
+                        Exercise name
+                      </label>
+                      <input
+                        id={`exercise-${exercise.id}`}
+                        type="text"
+                        placeholder="e.g. Barbell squat"
+                        value={exercise.name}
+                        onChange={(event) => updateExerciseName(exercise.id, event.target.value)}
+                        autoComplete="off"
+                      />
+                      {suggestions.length > 0 && (
+                        <div className="exercise-suggestions" role="listbox" aria-label="Exercise suggestions">
+                          {suggestions.map((suggestion) => (
+                            <button
+                              key={suggestion.key}
+                              type="button"
+                              role="option"
+                              onClick={() => updateExerciseName(exercise.id, suggestion.displayName)}
+                            >
+                              {suggestion.displayName}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button
                       className="text-button danger"
                       type="button"
@@ -393,6 +679,15 @@ function App() {
                       Remove
                     </button>
                   </div>
+
+                  {lastExerciseSummary && (
+                    <p className="exercise-history-hint">
+                      Last time: {lastExerciseSummary.setCount}{' '}
+                      {lastExerciseSummary.setCount === 1 ? 'set' : 'sets'}, top set{' '}
+                      {formatSetValue(lastExerciseSummary.topSet.reps)} x{' '}
+                      {formatSetValue(lastExerciseSummary.topSet.weight)}
+                    </p>
+                  )}
 
                   {exercise.sets.length > 0 && (
                     <div className="sets" aria-label={`${exercise.name || 'Exercise'} sets`}>
@@ -442,11 +737,23 @@ function App() {
                     </div>
                   )}
 
-                  <button className="secondary-button" type="button" onClick={() => addSet(exercise.id)}>
-                    Add set
-                  </button>
-                </fieldset>
-              ))}
+                  <div className="exercise-set-actions">
+                    {exercise.sets.length > 0 && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => repeatLastSet(exercise.id)}
+                      >
+                        Repeat last set
+                      </button>
+                    )}
+                    <button className="secondary-button" type="button" onClick={() => addSet(exercise.id)}>
+                      Add set
+                    </button>
+                  </div>
+                  </fieldset>
+                )
+              })}
             </div>
           )}
 
@@ -471,6 +778,7 @@ function App() {
           <HistoryView
             workouts={workouts}
             selectedExercise={selectedExercise}
+            selectedExerciseName={loggedExerciseNames.get(selectedExercise) ?? selectedExercise}
             notice={historyNotice}
             onSelectExercise={setSelectedExercise}
             onEditWorkout={editWorkout}
@@ -483,8 +791,12 @@ function App() {
           <DataView
             workouts={workouts}
             bodyweightEntries={bodyweightEntries}
+            exerciseGroups={loggedExercises}
+            hasExerciseMergeBackup={hasExerciseMergeBackup}
             onRestore={restoreData}
             onSaveParsedWorkouts={addParsedWorkouts}
+            onMergeExercises={mergeExercises}
+            onUndoExerciseMerge={undoExerciseMerge}
           />
         )}
       </div>

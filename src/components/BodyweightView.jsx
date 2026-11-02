@@ -43,7 +43,12 @@ function BodyweightView({ entries, onSave }) {
       return
     }
 
-    onSave({ date, weight: numericWeight })
+    if (!onSave({ date, weight: numericWeight })) {
+      setError('Could not save your bodyweight entry. Your existing data was not changed.')
+      setMessage('')
+      return
+    }
+
     setWeight('')
     setError('')
     setMessage('Bodyweight saved on this device.')

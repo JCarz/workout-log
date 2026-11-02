@@ -22,7 +22,7 @@ async function cacheAppShell() {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(cacheAppShell().then(() => self.skipWaiting()))
+  event.waitUntil(cacheAppShell())
 })
 
 self.addEventListener('activate', (event) => {
@@ -33,12 +33,16 @@ self.addEventListener('activate', (event) => {
         cacheNames
           .filter((cacheName) => cacheName !== CACHE_NAME)
           .map((cacheName) => caches.delete(cacheName)),
-      ))
-      .then(() => self.clients.claim()),
+      )),
   )
 })
 
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'ACTIVATE_UPDATE') {
+    event.waitUntil(self.skipWaiting())
+    return
+  }
+
   if (event.data?.type !== 'CACHE_URLS' || !Array.isArray(event.data.urls)) return
 
   const sameOriginUrls = event.data.urls.filter((url) => {

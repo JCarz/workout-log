@@ -1,5 +1,6 @@
 import React from 'react'
 import WeightTrend from './WeightTrend.jsx'
+import { normalizeExerciseName } from '../lib/exercises.js'
 
 function formatDate(date) {
   return new Intl.DateTimeFormat(undefined, {
@@ -13,16 +14,12 @@ function setCountLabel(count) {
   return `${count} ${count === 1 ? 'set' : 'sets'}`
 }
 
-function normalizeExerciseName(name) {
-  return name.trim().toLocaleLowerCase()
-}
-
 function formatWeight(weight) {
   return Number.isInteger(weight) ? weight : weight.toFixed(1)
 }
 
-function getHeaviestSet(exercise) {
-  return exercise.sets.reduce((heaviest, set) => {
+function getHeaviestSet(sets) {
+  return sets.reduce((heaviest, set) => {
     const weight = Number(set.weight)
 
     if (!Number.isFinite(weight)) return heaviest
@@ -34,17 +31,18 @@ function getHeaviestSet(exercise) {
   }, null)
 }
 
-function ExerciseHistory({ exerciseName, workouts, onBack }) {
-  const normalizedName = normalizeExerciseName(exerciseName)
+function ExerciseHistory({ exerciseKey, exerciseName, workouts, onBack }) {
   const sessions = workouts
-    .flatMap((workout) =>
-      workout.exercises
-        .filter((exercise) => normalizeExerciseName(exercise.name) === normalizedName)
-        .map((exercise) => ({ date: workout.date, exercise })),
-    )
+    .flatMap((workout) => {
+      const sets = workout.exercises
+        .filter((exercise) => normalizeExerciseName(exercise.name) === exerciseKey)
+        .flatMap((exercise) => exercise.sets)
+
+      return sets.length > 0 ? [{ date: workout.date, sets }] : []
+    })
     .sort((a, b) => b.date.localeCompare(a.date))
   const sessionBestSets = sessions
-    .map(({ date, exercise }) => ({ date, ...getHeaviestSet(exercise) }))
+    .map(({ date, sets }) => ({ date, ...getHeaviestSet(sets) }))
     .filter((set) => Number.isFinite(set.weight))
   const bestSet = sessionBestSets.reduce(
     (best, set) => (!best || set.weight > best.weight ? set : best),
@@ -89,11 +87,11 @@ function ExerciseHistory({ exerciseName, workouts, onBack }) {
       )}
 
       <div className="history-list">
-        {sessions.map(({ date, exercise }, sessionIndex) => (
-          <article className="history-card exercise-session" key={`${date}-${exercise.id}-${sessionIndex}`}>
+        {sessions.map(({ date, sets }, sessionIndex) => (
+          <article className="history-card exercise-session" key={`${date}-${sessionIndex}`}>
             <div className="history-card-heading">
               <time dateTime={date}>{formatDate(date)}</time>
-              <span>{setCountLabel(exercise.sets.length)}</span>
+              <span>{setCountLabel(sets.length)}</span>
             </div>
 
             <div className="history-sets">
@@ -102,7 +100,7 @@ function ExerciseHistory({ exerciseName, workouts, onBack }) {
                 <span>LBS</span>
                 <span>Reps</span>
               </div>
-              {exercise.sets.map((set, setIndex) => (
+              {sets.map((set, setIndex) => (
                 <div className="history-set-row" key={set.id}>
                   <span>{setIndex + 1}</span>
                   <strong>{set.weight} lbs</strong>
@@ -120,6 +118,7 @@ function ExerciseHistory({ exerciseName, workouts, onBack }) {
 function HistoryView({
   workouts,
   selectedExercise,
+  selectedExerciseName,
   notice,
   onSelectExercise,
   onEditWorkout,
@@ -129,7 +128,8 @@ function HistoryView({
   if (selectedExercise) {
     return (
       <ExerciseHistory
-        exerciseName={selectedExercise}
+        exerciseKey={selectedExercise}
+        exerciseName={selectedExerciseName}
         workouts={workouts}
         onBack={onBack}
       />
@@ -165,7 +165,7 @@ function HistoryView({
                     type="button"
                     className="history-exercise-button"
                     key={exercise.id}
-                    onClick={() => onSelectExercise(exercise.name)}
+                    onClick={() => onSelectExercise(normalizeExerciseName(exercise.name))}
                   >
                     <span>
                       <strong>{exercise.name}</strong>
